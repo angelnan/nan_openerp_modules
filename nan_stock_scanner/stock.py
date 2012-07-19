@@ -37,11 +37,8 @@ class res_company(osv.osv):
     _inherit = 'res.company'
 
     _columns = {
-        'scanner_lot_creation': fields.selection([
-            ('search-create','Search reference & create'),('always','Always')], 'Lot Creation', required=False, readonly=False, help='If set to "Search reference & create" the system will search the reference introduced in the lot and will create one if it''s not found. If set to "Always" it will create a lot even if one with the same number exists.'),
+        'scanner_lot_creation': fields.selection([('none','None'),('search-create','Search reference & create'),('always','Always')], 'Lot Creation', required=False, readonly=False, help='If set to "Search reference & create" the system will search the reference introduced in the lot and will create one if it''s not found. If set to "Always" it will create a lot even if one with the same number exists.'),
         'scanner_fill_quantity': fields.boolean('Fill Quantity', help='Mark pending quantity must be loaded when product is scanned' ),
-#        'scanner_input_reports_ids': fields.many2many( 'ir.actions.report.xml', 'scanner_input_repors_rel', 'warehouse_id','report_id' , 'Input Reports' , help='Reports to print after input packing has done' ),
-#        'scanner_output_reports_ids': fields.many2many( 'ir.actions.report.xml', 'scanner_output_reports_rel', 'warehouse_id','report_id', 'Output Reports', help='Reports to print after output packing has done' ),
     }
 
 res_company()
@@ -68,7 +65,7 @@ class stock_picking(osv.osv):
                     'title': _('EAN13 code update'),
                     'message': _('Number %(number)s will be updated to product %(product)s\nCurrent EAN13: %(current)s') % {
                         'number': ean13,
-                        'product': product.product_tmpl and product.product_tmpl_id.name or '',
+                        'product': product.name or '',
                         'current': product.ean13 or '',
                     } 
                 } 
@@ -352,7 +349,7 @@ class stock_picking(osv.osv):
                 total_received += move.received_quantity
                 item = {}
                 item['product_qty'] = move.received_quantity
-                item['received_quantity'] = move.received_quantity
+                item['received_quantity'] = 0
                 item['product_uom'] = move.product_uom.id
                 item['product_price'] = move.scanned_price_unit
                 item['product_currency'] = self.pool.get('res.users').browse(cr, uid, uid, context).company_id.currency_id.id
@@ -365,8 +362,8 @@ class stock_picking(osv.osv):
         res = self.do_partial(cr, uid, ids, data, context)
         move_ids = []
         for picking in self.browse(cr, uid, ids, context):
-            for move in picking.move_lines:
-                move_ids.append( move.id )
+            if  res.get(picking.id) and res[picking.id]['delivered_picking'] != picking.id:
+                move_ids += [x.id for x in picking.move_lines]
 
         self.pool.get('stock.move').write(cr, uid, move_ids, {
             'received_quantity': 0,
